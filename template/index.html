@@ -65,8 +65,13 @@
 		{{range .}}
 		<tr>
 			<td align="center">
-				<button name="addButton" class="addButton">Add</button>
-				<input type="hidden" class="symbolHistory" value="{{.Resource.Fields.Symbol}}"/>
+				<form action="addToList">
+					<button name="addButton" class="addButton">Add</button>
+					<input type="hidden" class="symbolForAdd" name="symbolForAdd" value="{{.Resource.Fields.Symbol}}"/>
+					<input type="hidden" name="stockName" value="{{.Resource.Fields.Name}}"/>
+					<input type="hidden" name="username" value="Jay"/>
+				</form>
+
 			</td>
 			<td>
 				{{.Resource.Fields.Name}}
@@ -94,6 +99,10 @@
 
 	{{end}}
 
+	<div id="customList">
+
+	</div>
+
 
 </div>
 </body>
@@ -105,8 +114,9 @@
 		var symbolList = "";
 		var input = $('input[name="symbolInput"]');
 		var symbolHidden = $('input[name="symbol"]');
-		var history = $('input.symbolHistory');
+		var history = $('input[name="symbolForAdd"]');
 		var button = $('input[name="submitButton"]');
+		var addButton = $('input[name="addButton"]');
 
 		input.focus();
 
@@ -118,6 +128,10 @@
 			symbolList += input.val();
 			symbolHidden.val(symbolList);
 
+		});
+
+		addButton.add('click', function(){
+			$(this).parent("form").submit();
 		});
 
 	});

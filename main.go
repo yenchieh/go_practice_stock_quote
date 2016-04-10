@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var templates map[string]*template.Template
@@ -31,7 +32,7 @@ func main() {
 	//mux.HandleFunc("/welcome", index)
 	r.HandleFunc("/", index)
 	r.HandleFunc("/search", getQuotesAndRender).Methods("Get")
-	r.HandleFunc("/dbTest", dbTest).Methods("Get")
+	r.HandleFunc("/addToList", addToList).Methods("Get")
 	log.Println("Listening...")
 
 	server := &http.Server{
@@ -115,7 +116,17 @@ func getQuotes(symbol string) (MainList, error){
 	return mainList, nil
 }
 
-func dbTest(w http.ResponseWriter, r *http.Request){
+func addToList(w http.ResponseWriter, r *http.Request){
+	symbol := r.URL.Query().Get("symbolForAdd")
+	stockName := r.URL.Query().Get("stockName")
+	username := r.URL.Query().Get("username")
+	if symbol == "" || stockName == "" || username == "" {
+		http.Error(w, "Error on getting parameter", http.StatusInternalServerError)
+		return;
+	}
+
+	//mainList, err := getQuotes(symbol)
+
 	session, err := mgo.Dial("localhost")
 	if err != nil {
 		panic(err)
@@ -125,14 +136,38 @@ func dbTest(w http.ResponseWriter, r *http.Request){
 
 	session.SetMode(mgo.Monotonic, true)
 
-	c := session.DB("taskdb").C("quotes")
+	c := session.DB("testDB").C("userStockList")
 
-	symbol := r.URL.Query().Get("symbol")
-	mainList, err := getQuotes(symbol)
-
-	if err = c.Insert(&mainList); err != nil {
-		log.Fatal(err)
+	user := User {
+		Name: username,
 	}
+
+
+	stock := make(map[string]Stock)
+	stock[symbol] = Stock{ StockName: stockName, Symbol: symbol}
+
+	var existingUser CustomList
+	if err = c.Find(bson.M{"user": user}).One(&existingUser); err != nil {
+		//Not found
+		log.Println("The user is not exist")
+		customList := CustomList {
+			User: user,
+			Stock: stock,
+		}
+
+		if err = c.Insert(&customList); err != nil {
+			log.Fatal(err)
+		}
+	}else{
+		log.Println("Existing User")
+		existingUser.AddStock(stock)
+		if err := c.Update(bson.M{"_id": existingUser.Id}, existingUser); err != nil {
+			log.Panic(err)
+		}
+	}
+
+
+
 
 
 }

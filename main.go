@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"strings"
 )
 
 var templates map[string]*template.Template
@@ -21,7 +22,7 @@ func init(){
 		templates = make(map[string]*template.Template)
 	}
 
-	templates["index"] = template.Must(template.ParseFiles("src/github.com/go_practice/template/index.html"))
+	templates["index"] = template.Must(template.ParseFiles("src/github.com/go_practice/index.html"))
 
 }
 
@@ -31,6 +32,7 @@ func main() {
 	r := mux.NewRouter().StrictSlash(false)
 	//mux.HandleFunc("/welcome", index)
 	r.HandleFunc("/", index)
+	r.HandleFunc("/resource/{type}/{fileName}", ServeHTTP)
 	r.HandleFunc("/search", getQuotesAndRender).Methods("Get")
 	r.HandleFunc("/addToList", addToList).Methods("Get")
 	log.Println("Listening...")
@@ -165,10 +167,39 @@ func addToList(w http.ResponseWriter, r *http.Request){
 			log.Panic(err)
 		}
 	}
-
-
-
-
-
 }
+
+var baseTemplateURL = "src/github.com/go_practice"
+func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	fileType := vars["type"]
+	fileName := vars["fileName"]
+	path := fmt.Sprintf("%s/%s/%s", baseTemplateURL, fileType, fileName)
+
+	log.Printf("Loading File: %s", path)
+
+	data, err := ioutil.ReadFile(path)
+	if err == nil {
+		var contentType string
+		if strings.HasSuffix(path, ".css") {
+			contentType = "text/css"
+		} else if strings.HasSuffix(path, ".js") {
+			contentType = "application/javascript"
+		} else if strings.HasSuffix(path, ".png") {
+			contentType = "image/png"
+		} else {
+			contentType = "text/html"
+		}
+		w.Header().Add("Content-Type", contentType)
+		w.Write(data)
+
+	} else {
+		w.WriteHeader(404)
+		w.Write([]byte("404 Not Found - " + http.StatusText(404)))
+	}
+
+	//w.Write([]byte("First Name: " + p.fName))
+}
+
 

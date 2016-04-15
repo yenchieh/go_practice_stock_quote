@@ -6,6 +6,7 @@ import (
 	"log"
 	"text/template"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/handlers"
 	"io/ioutil"
 	"encoding/json"
 	"gopkg.in/mgo.v2"
@@ -39,7 +40,7 @@ func main() {
 
 	server := &http.Server{
 		Addr: ":8080",
-		Handler: r,
+		Handler: handlers.CORS()(r),
 	}
 
 	server.ListenAndServe()
@@ -76,7 +77,13 @@ func getQuotesAndRender(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 	}
 
-	renderTemplate(w, "index", mainList.List.Resources)
+	if resp, err := json.Marshal(mainList.List.Resources); err != nil {
+		panic(err)
+	}else{
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp)
+	}
 }
 
 func requestServer(url string, symbol string) (MainList, error){
@@ -95,6 +102,7 @@ func requestServer(url string, symbol string) (MainList, error){
 	}
 
 	log.Printf("Resposne: %s", body)
+
 
 	if err = json.Unmarshal(body, &quote); err != nil {
 		fmt.Printf("Parse JSON Error: %s\n", err.Error())

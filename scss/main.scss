@@ -27,4 +27,10 @@ body {
 			}
 		}
 	}
+
+	table {
+		tr {
+			transition: background-color .5s;
+		}
+	}
 }

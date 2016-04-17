@@ -2,36 +2,30 @@ package main
 
 import "gopkg.in/mgo.v2/bson"
 
-type Fields struct {
-	Name string `json:"name"`
-	Price string `json:"price"`
-	Symbol string `json:"symbol"`
-	Ts string `json:"ts"`
-	Type string `json:"type"`
-	Utctime string `json:"utctime"`
-	Volume string `json:"volume"`
-}
-
-type SubResource struct {
-	Classname string `json:"classname"`
-	Fields Fields `json:"fields"`
-}
-type SubResources struct {
-	Resource SubResource `json:"resource"`
-}
-
-type Meta struct {
-	Type string `json:"type"`
-	start int `json:"start"`
-	count int `json:"count"`
-}
-
-type Quotes struct {
-	Meta Meta `json:"meta"`
-	Resources  []SubResources `json:"resources"`
-}
-
-type MainList struct {
+type QueryResult struct {
 	Id bson.ObjectId `bson:"_id,omitempty"`
-	List Quotes `json:"list"`
+	Query Query `json:"query"`
+}
+
+type Query struct {
+	Count int `json:"count"`
+	Created string `json:"created"`
+	Lang string `json:"lang"`
+	Results Quote `json:"results"`
+}
+
+type Quote struct {
+	Quote StockQuotes `json:"quote"`
+}
+
+type StockQuotes struct {
+	Change string `json:"change"`
+	PercentChange string `json:"percentChange"`
+	DaysLow string `json:"daysLow"`
+	DaysHigh string `json:"daysHigh"`
+	Open string `json:"open"`
+	PreviousClose string `json:"previousClose"`
+	Symbol string `json:"symbol"`
+	Name string `json:"name"`
+	Volume string `json:"volume"`
 }

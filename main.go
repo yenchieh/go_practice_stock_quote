@@ -12,17 +12,18 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"strings"
+	"net/url"
 )
 
 var templates map[string]*template.Template
-
+var yahooFinanceUrl string
 
 
 func init(){
+	yahooFinanceUrl = "http://query.yahooapis.com/v1/public/yql"
 	if templates == nil {
 		templates = make(map[string]*template.Template)
 	}
-
 	templates["index"] = template.Must(template.ParseFiles("src/github.com/go_practice/index.html"))
 
 }
@@ -72,12 +73,12 @@ func getQuotesAndRender(w http.ResponseWriter, r *http.Request) {
 		return;
 	}
 
-	mainList, err := getQuotes(symbol)
+	query, err := getQuotes(symbol)
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 	}
 
-	if resp, err := json.Marshal(mainList.List.Resources); err != nil {
+	if resp, err := json.Marshal(query); err != nil {
 		panic(err)
 	}else{
 		w.Header().Set("Content-Type", "application/json")
@@ -86,56 +87,68 @@ func getQuotesAndRender(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestServer(url string, symbol string) (MainList, error){
-	var quote MainList
-	requestUrl := fmt.Sprintf(url, symbol)
-	log.Printf("Request URL: %s\n", requestUrl)
-	resp, err := http.Get(requestUrl)
+func requestServer(Url *url.URL) ([]byte, error){
+	log.Printf("Request URL: %s\n", Url.String())
+	resp, err := http.Get(Url.String())
 
 	if err != nil {
-		return quote, err
+		return nil, err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil{
-		return quote, err
+		return nil, err
 	}
 
 	log.Printf("Resposne: %s", body)
 
-
-	if err = json.Unmarshal(body, &quote); err != nil {
-		fmt.Printf("Parse JSON Error: %s\n", err.Error())
-		return quote, err
-	}
-
-	return quote, nil
+	return body, nil
 
 }
 
 /**
 
  */
-func getQuotes(symbol string) (MainList, error){
-	mainList, err := requestServer("http://finance.yahoo.com/webservice/v1/symbols/%s/quote?format=json", symbol)
+func getQuotes(symbol string) (QueryResult, error){
+	var queryResult QueryResult
+	var Url *url.URL
+
+	Url, err := url.Parse(yahooFinanceUrl)
 
 	if err != nil {
-		return mainList, err
+		log.Panic(err)
 	}
 
-	return mainList, nil
+	query := fmt.Sprintf("select finance, Name, Symbol, Change, PercentChange, DaysLow, DaysHigh, Open,PreviousClose, Volume from yahoo.finance.quotes where symbol in (\"%s\")", symbol)
+	parameters := url.Values{}
+	parameters.Add("q", query)
+	parameters.Add("format", "json")
+	parameters.Add("env", "http://datatables.org/alltables.env")
+
+	Url.RawQuery = parameters.Encode()
+
+	quoteResultRaw, err := requestServer(Url)
+
+	if err != nil {
+		return queryResult, err
+	}
+
+	if err = json.Unmarshal(quoteResultRaw, &queryResult); err != nil {
+		fmt.Printf("Parse JSON Error: %s\n", err.Error())
+		return queryResult, err
+	}
+
+	return queryResult, nil
 }
 
 func addToList(w http.ResponseWriter, r *http.Request){
-	symbol := r.URL.Query().Get("symbolForAdd")
-	stockName := r.URL.Query().Get("stockName")
+	symbol := r.URL.Query().Get("symbol")
+	stockName := r.URL.Query().Get("stockNamex")
 	username := r.URL.Query().Get("username")
-	if symbol == "" || stockName == "" || username == "" {
+	if symbol == "" || username == "" {
 		http.Error(w, "Error on getting parameter", http.StatusInternalServerError)
 		return;
 	}
-
-	//mainList, err := getQuotes(symbol)
 
 	session, err := mgo.Dial("localhost")
 	if err != nil {
@@ -156,10 +169,10 @@ func addToList(w http.ResponseWriter, r *http.Request){
 	stock := make(map[string]Stock)
 	stock[symbol] = Stock{ StockName: stockName, Symbol: symbol}
 
-	var existingUser CustomList
-	if err = c.Find(bson.M{"user": user}).One(&existingUser); err != nil {
+	var customList CustomList
+	if err = c.Find(bson.M{"user": user}).One(&customList); err != nil {
 		//Not found
-		log.Println("The user is not exist")
+		log.Printf("The user is not exist %s", user)
 		customList := CustomList {
 			User: user,
 			Stock: stock,
@@ -168,13 +181,23 @@ func addToList(w http.ResponseWriter, r *http.Request){
 		if err = c.Insert(&customList); err != nil {
 			log.Fatal(err)
 		}
+
 	}else{
-		log.Println("Existing User")
-		existingUser.AddStock(stock)
-		if err := c.Update(bson.M{"_id": existingUser.Id}, existingUser); err != nil {
+		log.Printf("Existing User %s", user)
+		customList.AddStock(stock)
+		if err := c.Update(bson.M{"_id": customList.Id}, customList); err != nil {
 			log.Panic(err)
 		}
 	}
+
+	if jsonResponse, err := json.Marshal(customList); err == nil {
+		w.Header().Set("Context-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
+	}else{
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
 }
 
 var baseTemplateURL = "src/github.com/go_practice"
@@ -186,6 +209,8 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := fmt.Sprintf("%s/%s/%s", baseTemplateURL, fileType, fileName)
 
 	log.Printf("Loading File: %s", path)
+
+	fmt.Printf("Here is: %s", r.Method);
 
 	data, err := ioutil.ReadFile(path)
 	if err == nil {

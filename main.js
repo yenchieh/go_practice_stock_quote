@@ -32,8 +32,6 @@ var Main = React.createClass({
 			data: {
 				symbol: symbolInput.val()
 			},
-			crossDomain: true,
-			cache: false,
 			dataType: 'json',
 			success: function(data){
 				if(!data || data.length == 0){
@@ -41,7 +39,7 @@ var Main = React.createClass({
 				}
 				this.$symbolInput.val("");
 				var quoteData = this.state.quoteData;
-				quoteData.push(data);
+				quoteData.push(data.query.results.quote);
 				this.setState({quoteData: quoteData});
 			}.bind(this)
 		});
@@ -57,6 +55,15 @@ var Main = React.createClass({
 	render: function () {
 		return (
 			<div>
+				<div id="nav">
+					<nav className="navbar navbar-default navbar-static">
+						<a className="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+							<span className="glyphicon glyphicon-bar">aa</span>
+							<span className="glyphicon glyphicon-bar"></span>
+							<span className="glyphicon glyphicon-bar"></span>
+						</a>
+					</nav>
+				</div>
 				<div id="mainSearchComponent">
 					<figure className="highlight">
 						<div className="form-inline">

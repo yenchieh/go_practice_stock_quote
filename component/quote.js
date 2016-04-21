@@ -4,92 +4,120 @@
 
 var React = require('react');
 var ReactDOM = require('react-dom');
+var update = require('react-addons-update');
+import 'whatwg-fetch';
+
+const API_DOMAIN = "http://localhost:8080/";
+const API_ADDSTOCK = "addToList";
+const API_HEADER = {
+	'Accept': 'application/json',
+	'Content-Type': 'application/json'
+};
 
 var QuoteTable = React.createClass({
 	getInitialState: function () {
 		return {
-			domain: 'http://localhost:8080/',
-			addStock: 'addToList'
+			stocks: []
 		}
+	},
+
+	componentWillReceiveProps: function(){
+		if(this.props.data.length == 0){
+			return;
+		}
+		var stocks = this.props.data;
+		this.setState({stocks: stocks});
 	},
 
 	clickAddButton: function(e){
-		this.clickedButton = $(e.target);
-		var username = "Jay";
-		this.clickedButton.addClass("disabled");
+		var clickedButton = $(e.target);
+
+		if(clickedButton.hasClass("disabled")){
+			return;
+		}
+
+		clickedButton.addClass("disabled");
 		this.storeStock({
-			symbol: this.clickedButton.attr('data-symbol'),
-			stockName: this.clickedButton.attr('data-name'),
-			username: "Jay"
+			button: clickedButton
 		});
 	},
 
-	storeStock: function(data){
+	storeStock: function(oArgs){
+		oArgs = oArgs || {};
+		var clickedButton = oArgs.button;
+		var username = "Jay";
+		var data = {
+			symbol: clickedButton.attr('data-symbol'),
+			stockName: clickedButton.attr('data-name'),
+			username: username
+		};
 
-/*
-		this.get(this.state.domain + this.state.addStock, data).then(function(result){
-			console.error(result);
-		}, function(e){
-			console.error(e);
-		});
-*/
-
-		$.ajax({
-			url: this.state.domain + this.state.addStock,
-			data: data,
-			method: 'GET',
-			crossDomain: true,
-			cache: false,
-			dataType: 'json',
-			success: function(data){
-
+		fetch(API_DOMAIN + API_ADDSTOCK, {
+			method: 'POST',
+			mode: 'cors',
+			body: JSON.stringify(data),
+			headers: API_HEADER
+		}).then((response) => response.json())
+			.then((data) => {
 				if(!data || data.length == 0){
-					this.clickedButton.removeClass("disabled");
+					clickedButton.removeClass("disabled");
+
 				}else{
-					this.clickedButton.parents("tr").css({
-						"background-color": "gainsboro"
-					});
+					this.stockAdded(clickedButton);
 				}
-			}.bind(this)
-		});
+			}
+		);
 	},
 
-	get: function(url, data){
-		return new Promise(function(resolve, reject){
-			var req = new XMLHttpRequest();
-			req.open('GET', url, true);
-			req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-			req.setRequestHeader("Access-Control-Allow-Origin", "*");
-			req.setRequestHeader("Access-Control-Allow-Credentials", "true");
-			req.setRequestHeader("Access-Control-Allow-Methods", "GET");
-			req.setRequestHeader('Cache-Control', 'no-cache');
-			req.onload = function() {
-				if (req.status == 200) {
-					resolve(req.response);
-				} else {
-					reject(Error(req.statusText));
+	stockAdded: function(clickedButton){
+		clickedButton.parents("tr").css({
+			"background-color": "gainsboro"
+		});
+
+		let index = clickedButton.attr("data-id");
+		let updateButton = update(this.state.stocks, {
+			[index]: {
+				buttonType: {
+					$set: "remove"
 				}
-			};
+			}
+		});
 
-			req.onerror = function(){
-				reject(Error("Network Error"));
-			};
+		this.setState({
+			stocks: updateButton
+		});
 
-			req.send(JSON.stringify(data));
+	},
 
-		}.bind(this));
+	renderFirstTitle: function(){
+		if(this.props.buttonType == "add"){
+			return <th>Add</th>
+		}else if(this.props.buttonType == "remove"){
+			return <th>Remove</th>
+		}else{
+			return null
+		}
+	},
+
+	renderAddOrRemove: function(quote, key){
+		if(quote.buttonType == "add"){
+			return (<td><button className="btn btn-sm btn-success" data-symbol={quote.symbol} data-name={quote.name} onClick={this.clickAddButton} data-id={key}>Add to List</button></td>)
+		}else if(quote.buttonType == "remove"){
+			return (<td><button className="btn btn-sm btn-warning" data-symbol={quote.symbol} data-name={quote.name} onClick={this.props.removeButtonCallback.bind(null, key)} data-id={key}>Remove</button></td>)
+		}else{
+			return null
+		}
 	},
 
 	render: function () {
-		if(!this.props.data){
+		if(!this.state.stocks){
 			return;
 		}
-		var quoteTable = this.props.data.map(function (quote, i) {
+
+		var quoteTable = this.state.stocks.map(function (quote, i) {
 				return (
 					<tr key={i}>
-						<td>
-							<button className="btn btn-sm btn-success" data-symbol={quote.symbol} data-name={quote.name} onClick={this.clickAddButton}>Add to List</button>
-						</td>
+						{this.renderAddOrRemove(quote, i)}
 						<td>
 							{quote.name}
 						</td>
@@ -119,7 +147,7 @@ var QuoteTable = React.createClass({
 				<table className="table table-hover">
 					<thead>
 					<tr>
-						<th>Add</th>
+						{this.renderFirstTitle()}
 						<th>Name</th>
 						<th>Symbol</th>
 						<th>Open</th>

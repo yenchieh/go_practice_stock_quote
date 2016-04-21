@@ -3,13 +3,16 @@ package main
 import (
 	"gopkg.in/mgo.v2/bson"
 	"fmt"
+	"time"
 )
 
 type User struct {
 	Id bson.ObjectId `bson:"_id,omitempty"`
-	Name string
+	Name string `bson:"omitempty"`
 	Password string
 	Email string
+	DateCreated time.Time `json:"dateCreated"`
+
 }
 
 type CustomList struct {

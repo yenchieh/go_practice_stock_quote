@@ -5,70 +5,9 @@
 	<title>Go Practice</title>
 </head>
 <body>
-<h1>Go Symbol Search</h1>
+<h1 class="title">Go Stock Project !Yen-Chieh!</h1>
 <div id="app"></div>
 <script src="index.js"></script>
-	<!--
-
-		<form name="searchStock" action="search">
-			<input type="text" name="symbolInput" placeholder="Symbol or Stock Name"/>
-			<input type="hidden" name="symbol"/>
-			<input type="submit" value="search" name="submitButton"/>
-		</form>
-
-		{{if .}}
-		<table border="1">
-			<tbody>
-			<tr>
-				<td style="font-size: 15px;">Add to your list</td>
-				<td>Name</td>
-				<td>Price</td>
-				<td>Symbol</td>
-				<td>Volume</td>
-			</tr>
-
-			{{range .}}
-			<tr>
-				<td align="center">
-					<form action="addToList">
-						<button name="addButton" class="addButton">Add</button>
-						<input type="hidden" class="symbolForAdd" name="symbolForAdd" value="{{.Resource.Fields.Symbol}}"/>
-						<input type="hidden" name="stockName" value="{{.Resource.Fields.Name}}"/>
-						<input type="hidden" name="username" value="Jay"/>
-					</form>
-
-				</td>
-				<td>
-					{{.Resource.Fields.Name}}
-				</td>
-				<td>
-					{{.Resource.Fields.Price}}
-				</td>
-				<td>
-					{{.Resource.Fields.Symbol}}
-				</td>
-				<td>
-					{{.Resource.Fields.Volume}}
-				</td>
-			</tr>
-			{{end}}
-
-			</tbody>
-		</table>
-
-		{{else}}
-
-		<div class="description">
-			Please enter symbol to search the stock quote
-		</div>
-
-		{{end}}
-
-		<div id="customList">
-
-		</div>
-	-->
-
 
 </body>
 <script>

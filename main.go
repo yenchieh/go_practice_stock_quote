@@ -6,20 +6,19 @@ import (
 	"log"
 	"text/template"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/handlers"
 	"io/ioutil"
 	"encoding/json"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"strings"
 	"net/url"
+	"github.com/rs/cors"
 )
 
 var templates map[string]*template.Template
 var yahooFinanceUrl string
 
-
-func init(){
+func init() {
 	yahooFinanceUrl = "http://query.yahooapis.com/v1/public/yql"
 	if templates == nil {
 		templates = make(map[string]*template.Template)
@@ -28,26 +27,30 @@ func init(){
 
 }
 
-
 func main() {
+
+
 	fmt.Println("Starting...")
 	r := mux.NewRouter().StrictSlash(false)
 	//mux.HandleFunc("/welcome", index)
 	r.HandleFunc("/", index)
 	r.HandleFunc("/resource/{type}/{fileName}", ServeHTTP)
 	r.HandleFunc("/search", getQuotesAndRender).Methods("Get")
-	r.HandleFunc("/addToList", addToList).Methods("Get")
+	r.HandleFunc("/addToList", addToList).Methods("POST")
+	r.HandleFunc("/getUserStockList", getUserStockList).Methods("GET")
 	log.Println("Listening...")
 
-	server := &http.Server{
+/*	server := &http.Server{
 		Addr: ":8080",
-		Handler: handlers.CORS()(r),
-	}
+		Handler: cors.Default().Handler(r)
+	}*/
 
-	server.ListenAndServe()
+	handler := cors.Default().Handler(r)
+
+	http.ListenAndServe(":8080", handler)
 }
 
-func renderTemplate(w http.ResponseWriter, name string, template interface{}){
+func renderTemplate(w http.ResponseWriter, name string, template interface{}) {
 	temp, ok := templates[name]
 	if !ok {
 		http.Error(w, "Can't find the page", http.StatusBadGateway)
@@ -59,7 +62,7 @@ func renderTemplate(w http.ResponseWriter, name string, template interface{}){
 	}
 }
 
-func index(w http.ResponseWriter, r *http.Request){
+func index(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, "index", nil)
 }
 
@@ -80,14 +83,66 @@ func getQuotesAndRender(w http.ResponseWriter, r *http.Request) {
 
 	if resp, err := json.Marshal(query); err != nil {
 		panic(err)
-	}else{
+	}else {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(resp)
 	}
 }
 
-func requestServer(Url *url.URL) ([]byte, error){
+func getUserStockList(w http.ResponseWriter, r *http.Request) {
+	userName := r.URL.Query().Get("userName")
+
+	if len(userName) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		errorResponse := Error{
+			Status: string(http.StatusBadRequest),
+			Message: "Fail to read user name",
+		}
+		if jsonResponse, err := json.Marshal(errorResponse); err == nil {
+			w.Write(jsonResponse)
+		}else {
+			panic(err)
+		}
+		return;
+	}
+
+	session, err := mgo.Dial("localhost")
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer session.Close()
+
+	log.Printf("Search User: %s\n", userName)
+
+	session.SetMode(mgo.Monotonic, true)
+	c := session.DB("testDB").C("userStockList")
+
+/*	searchUser := User {
+		Name: userName,
+	}*/
+	user := []CustomList{}
+
+	err = c.Find(nil).All(&user)
+
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("Find User: %s\n", user[0])
+
+	if jsonResponse, err := json.Marshal(user); err == nil {
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponse)
+	}else {
+		panic(err)
+	}
+
+}
+
+func requestServer(Url *url.URL) ([]byte, error) {
 	log.Printf("Request URL: %s\n", Url.String())
 	resp, err := http.Get(Url.String())
 
@@ -96,7 +151,7 @@ func requestServer(Url *url.URL) ([]byte, error){
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 
@@ -109,7 +164,7 @@ func requestServer(Url *url.URL) ([]byte, error){
 /**
 
  */
-func getQuotes(symbol string) (QueryResult, error){
+func getQuotes(symbol string) (QueryResult, error) {
 	var queryResult QueryResult
 	var Url *url.URL
 
@@ -141,11 +196,14 @@ func getQuotes(symbol string) (QueryResult, error){
 	return queryResult, nil
 }
 
-func addToList(w http.ResponseWriter, r *http.Request){
-	symbol := r.URL.Query().Get("symbol")
-	stockName := r.URL.Query().Get("stockNamex")
-	username := r.URL.Query().Get("username")
-	if symbol == "" || username == "" {
+func addToList(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	var symbolRequest StoreSymbolRequest
+	if err := json.Unmarshal(body, &symbolRequest); err != nil {
+		panic(err)
+	}
+
+	if symbolRequest.Symbol == "" || symbolRequest.UserName == "" {
 		http.Error(w, "Error on getting parameter", http.StatusInternalServerError)
 		return;
 	}
@@ -161,19 +219,18 @@ func addToList(w http.ResponseWriter, r *http.Request){
 
 	c := session.DB("testDB").C("userStockList")
 
-	user := User {
-		Name: username,
+	user := User{
+		Name: symbolRequest.UserName,
 	}
 
-
 	stock := make(map[string]Stock)
-	stock[symbol] = Stock{ StockName: stockName, Symbol: symbol}
+	stock[symbolRequest.Symbol] = Stock{StockName: symbolRequest.StockName, Symbol: symbolRequest.Symbol}
 
 	var customList CustomList
 	if err = c.Find(bson.M{"user": user}).One(&customList); err != nil {
 		//Not found
 		log.Printf("The user is not exist %s", user)
-		customList := CustomList {
+		customList := CustomList{
 			User: user,
 			Stock: stock,
 		}
@@ -182,7 +239,7 @@ func addToList(w http.ResponseWriter, r *http.Request){
 			log.Fatal(err)
 		}
 
-	}else{
+	}else {
 		log.Printf("Existing User %s", user)
 		customList.AddStock(stock)
 		if err := c.Update(bson.M{"_id": customList.Id}, customList); err != nil {
@@ -194,13 +251,14 @@ func addToList(w http.ResponseWriter, r *http.Request){
 		w.Header().Set("Context-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponse)
-	}else{
+	}else {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 }
 
 var baseTemplateURL = "src/github.com/go_practice"
+
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 

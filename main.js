@@ -2,47 +2,52 @@
 var React = require('react');
 var ReactDOM = require('react-dom');
 var css = require("!style!css!sass!./scss/main.scss");
-
 var QuoteTable = require('./component/quote.js');
+var StockList = require('./myStock.js');
+var update = require('react-addons-update');
+import 'whatwg-fetch';
 
+const API_DOMAIN = "http://localhost:8080/";
+const API_SEARCH = "search";
+const API_HEADER = {
+	'Accept': 'application/json',
+	'Content-Type': 'application/json'
+};
 
 var Main = React.createClass({
 	getInitialState: function () {
 		return {
 			domain: 'http://localhost:8080/',
 			searchPath: 'search',
-			$app: $('div#app'),
 			quoteData: [],
 			searchIndex: []
 		}
 	},
 
 	componentDidMount: function () {
-		this.$symbolInput = $('#symbolSearchInput');
+		this.symbolInput = document.getElementById("symbolSearchInput");
 	},
 
 	searchSymbol: function(){
-		var symbolInput = $('input#symbolSearchInput', this.state.$app);
-		if(!symbolInput){
-			return false;
-		}
+		fetch(API_DOMAIN + API_SEARCH + "?symbol=" + this.symbolInput.value, {
+			method: 'GET',
+			mode: 'cors',
+			headers: API_HEADER
+		}).then((response) => response.json())
+			.then((data) => {
 
-		$.ajax({
-			url: this.state.domain + this.state.searchPath,
-			data: {
-				symbol: symbolInput.val()
-			},
-			dataType: 'json',
-			success: function(data){
 				if(!data || data.length == 0){
 					return false;
 				}
-				this.$symbolInput.val("");
+				this.symbolInput.value = "";
 				var quoteData = this.state.quoteData;
-				quoteData.push(data.query.results.quote);
+				let newQuote = data.query.results.quote;
+				newQuote = update(newQuote, {$merge: {buttonType: "add"}});
+				quoteData.push(newQuote);
 				this.setState({quoteData: quoteData});
-			}.bind(this)
-		});
+			}
+		);
+
 	},
 
 	keypressed: function(e){
@@ -52,17 +57,18 @@ var Main = React.createClass({
 		}
 	},
 
+	clickRemoveButton: function(key){
+		console.error(key);
+	},
+
 	render: function () {
 		return (
 			<div>
 				<div id="nav">
-					<nav className="navbar navbar-default navbar-static">
-						<a className="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-							<span className="glyphicon glyphicon-bar">aa</span>
-							<span className="glyphicon glyphicon-bar"></span>
-							<span className="glyphicon glyphicon-bar"></span>
-						</a>
-					</nav>
+					<ul className="nav nav-tabs">
+						<li role="presentation" className="active"><a href="#">Search</a></li>
+						<li role="presentation"><a href="#">My Stock</a></li>
+					</ul>
 				</div>
 				<div id="mainSearchComponent">
 					<figure className="highlight">
@@ -79,8 +85,10 @@ var Main = React.createClass({
 
 				<div id="quoteList">
 					<h1>Quote List</h1>
-					<QuoteTable data={this.state.quoteData}/>
+					<QuoteTable data={this.state.quoteData} removeButtonCallback={this.clickRemoveButton}/>
 				</div>
+
+				<StockList/>
 			</div>
 
 		)

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"net/url"
 	"github.com/rs/cors"
+	"time"
 )
 
 var templates map[string]*template.Template
@@ -38,6 +39,7 @@ func main() {
 	r.HandleFunc("/search", getQuotesAndRender).Methods("Get")
 	r.HandleFunc("/addToList", addToList).Methods("POST")
 	r.HandleFunc("/getUserStockList", getUserStockList).Methods("GET")
+	r.HandleFunc("/removeFromList", removeFromStockList).Methods("POST")
 	log.Println("Listening...")
 
 /*	server := &http.Server{
@@ -76,7 +78,7 @@ func getQuotesAndRender(w http.ResponseWriter, r *http.Request) {
 		return;
 	}
 
-	query, err := getQuotes(symbol)
+	query, err := getQuote(symbol)
 	if err != nil {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 	}
@@ -120,20 +122,45 @@ func getUserStockList(w http.ResponseWriter, r *http.Request) {
 	session.SetMode(mgo.Monotonic, true)
 	c := session.DB("testDB").C("userStockList")
 
-/*	searchUser := User {
-		Name: userName,
-	}*/
-	user := []CustomList{}
+	user := CustomList{}
 
-	err = c.Find(nil).All(&user)
+	err = c.Find(bson.M{"user.name": userName}).One(&user)
 
 	if err != nil {
 		panic(err)
 	}
 
-	log.Printf("Find User: %s\n", user[0])
+	var stockList string
+	for _, i := range user.Stock {
+		stockList += i.Symbol + ","
+	}
 
-	if jsonResponse, err := json.Marshal(user); err == nil {
+	fmt.Printf("List: %s\n", stockList)
+
+	quotes, err := getQuotes(stockList)
+
+	if(err != nil){
+		panic(err)
+	}
+
+	var validQuote []StockQuotes
+	for _, quote := range quotes.Query.Results.Quote {
+		if len(quote.Name) != 0 {
+			validQuote = append(validQuote, quote)
+		}else{
+			//Remove from DB
+		}
+	}
+
+	quotes.Query.Results.Quote = validQuote
+
+	//put db id into each quote
+	for i, _ := range quotes.Query.Results.Quote {
+		quotes.Query.Results.Quote[i].Id = user.Stock[i].Id
+	}
+
+
+	if jsonResponse, err := json.Marshal(quotes); err == nil {
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponse)
 	}else {
@@ -161,11 +188,7 @@ func requestServer(Url *url.URL) ([]byte, error) {
 
 }
 
-/**
-
- */
-func getQuotes(symbol string) (QueryResult, error) {
-	var queryResult QueryResult
+func getQuoteFromServer(symbol string)([]byte, error){
 	var Url *url.URL
 
 	Url, err := url.Parse(yahooFinanceUrl)
@@ -173,7 +196,6 @@ func getQuotes(symbol string) (QueryResult, error) {
 	if err != nil {
 		log.Panic(err)
 	}
-
 	query := fmt.Sprintf("select finance, Name, Symbol, Change, PercentChange, DaysLow, DaysHigh, Open,PreviousClose, Volume from yahoo.finance.quotes where symbol in (\"%s\")", symbol)
 	parameters := url.Values{}
 	parameters.Add("q", query)
@@ -185,7 +207,39 @@ func getQuotes(symbol string) (QueryResult, error) {
 	quoteResultRaw, err := requestServer(Url)
 
 	if err != nil {
+		return nil, err
+	}
+
+	return quoteResultRaw, nil
+}
+
+/**
+
+ */
+func getQuote(symbol string) (QueryResult, error) {
+	var queryResult QueryResult
+
+	quoteResultRaw, err := getQuoteFromServer(symbol)
+
+	if err != nil {
+		panic(err)
+	}
+
+	if err = json.Unmarshal(quoteResultRaw, &queryResult); err != nil {
+		fmt.Printf("Parse JSON Error: %s\n", err.Error())
 		return queryResult, err
+	}
+
+	return queryResult, nil
+}
+
+func getQuotes(symbol string)(QueryResults, error){
+	var queryResult QueryResults
+
+	quoteResultRaw, err := getQuoteFromServer(symbol)
+
+	if err != nil {
+		panic(err)
 	}
 
 	if err = json.Unmarshal(quoteResultRaw, &queryResult); err != nil {
@@ -198,7 +252,7 @@ func getQuotes(symbol string) (QueryResult, error) {
 
 func addToList(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
-	var symbolRequest StoreSymbolRequest
+	var symbolRequest SymbolRequest
 	if err := json.Unmarshal(body, &symbolRequest); err != nil {
 		panic(err)
 	}
@@ -223,8 +277,7 @@ func addToList(w http.ResponseWriter, r *http.Request) {
 		Name: symbolRequest.UserName,
 	}
 
-	stock := make(map[string]Stock)
-	stock[symbolRequest.Symbol] = Stock{StockName: symbolRequest.StockName, Symbol: symbolRequest.Symbol}
+	stock := Stock{StockName: symbolRequest.StockName, Symbol: symbolRequest.Symbol}
 
 	var customList CustomList
 	if err = c.Find(bson.M{"user": user}).One(&customList); err != nil {
@@ -232,8 +285,9 @@ func addToList(w http.ResponseWriter, r *http.Request) {
 		log.Printf("The user is not exist %s", user)
 		customList := CustomList{
 			User: user,
-			Stock: stock,
+			DateCreated: time.Now(),
 		}
+		customList.AddStock(stock)
 
 		if err = c.Insert(&customList); err != nil {
 			log.Fatal(err)
@@ -253,6 +307,42 @@ func addToList(w http.ResponseWriter, r *http.Request) {
 		w.Write(jsonResponse)
 	}else {
 		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+}
+
+func removeFromStockList(w http.ResponseWriter, r *http.Request){
+	body, err := ioutil.ReadAll(r.Body)
+	var removeRequest RemoveFromListRequest
+	if err := json.Unmarshal(body, &removeRequest); err != nil {
+		panic(err)
+	}
+
+	if removeRequest.ListId == "" || removeRequest.UserName == "" {
+		http.Error(w, "Error on getting parameter", http.StatusInternalServerError)
+		return;
+	}
+
+	session, err := mgo.Dial("localhost")
+	if err != nil {
+		panic(err)
+	}
+
+	defer session.Close()
+
+	session.SetMode(mgo.Monotonic, true)
+
+	c := session.DB("testDB").C("userStockList")
+
+	user := User{Name: removeRequest.UserName}
+
+
+	if err := c.Update(bson.M{"user.name": user.Name}, bson.M{"$pull": bson.M{"stock": bson.M{"_id": bson.ObjectIdHex(removeRequest.ListId)}}}); err != nil {
+		panic(err)
+	}else{
+		w.Header().Set("Context-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(nil)
 	}
 
 }

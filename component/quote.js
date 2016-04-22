@@ -5,6 +5,7 @@
 var React = require('react');
 var ReactDOM = require('react-dom');
 var update = require('react-addons-update');
+var ReactCSSTransitionGroup = require('react-addons-css-transition-group');
 import 'whatwg-fetch';
 
 const API_DOMAIN = "http://localhost:8080/";
@@ -21,13 +22,10 @@ var QuoteTable = React.createClass({
 		}
 	},
 
-	componentWillReceiveProps: function(){
-		if(this.props.data.length == 0){
-			return;
-		}
-		var stocks = this.props.data;
-		this.setState({stocks: stocks});
+	componentWillReceiveProps: function(props){
+		this.setState({stocks: props.data});
 	},
+
 
 	clickAddButton: function(e){
 		var clickedButton = $(e.target);
@@ -89,16 +87,6 @@ var QuoteTable = React.createClass({
 
 	},
 
-	renderFirstTitle: function(){
-		if(this.props.buttonType == "add"){
-			return <th>Add</th>
-		}else if(this.props.buttonType == "remove"){
-			return <th>Remove</th>
-		}else{
-			return null
-		}
-	},
-
 	renderAddOrRemove: function(quote, key){
 		if(quote.buttonType == "add"){
 			return (<td><button className="btn btn-sm btn-success" data-symbol={quote.symbol} data-name={quote.name} onClick={this.clickAddButton} data-id={key}>Add to List</button></td>)
@@ -107,6 +95,16 @@ var QuoteTable = React.createClass({
 		}else{
 			return null
 		}
+	},
+
+	renderColoredStockChange: function(change, percentChange){
+		let className = change < 0 ? "negative" : "positive";
+		return(
+			<div>
+				<span className={className}>{change}</span> / <span className={className}>{percentChange}</span>
+			</div>
+
+		)
 	},
 
 	render: function () {
@@ -122,13 +120,13 @@ var QuoteTable = React.createClass({
 							{quote.name}
 						</td>
 						<td>
-							{quote.symbol}
+							<div className="symbol">{quote.symbol}</div>
 						</td>
 						<td>
 							{quote.open}
 						</td>
 						<td>
-							{quote.change} / {quote.percentChange}
+							{this.renderColoredStockChange(quote.change, quote.percentChange)}
 						</td>
 						<td>
 							{quote.daysLow} / {quote.daysHigh}
@@ -147,7 +145,7 @@ var QuoteTable = React.createClass({
 				<table className="table table-hover">
 					<thead>
 					<tr>
-						{this.renderFirstTitle()}
+						<th>Options</th>
 						<th>Name</th>
 						<th>Symbol</th>
 						<th>Open</th>
@@ -158,7 +156,8 @@ var QuoteTable = React.createClass({
 					</thead>
 
 					<tbody>
-					{quoteTable}
+						{quoteTable}
+
 					</tbody>
 				</table>
 
@@ -167,4 +166,4 @@ var QuoteTable = React.createClass({
 	}
 });
 
-module.exports = QuoteTable;
+export default QuoteTable;

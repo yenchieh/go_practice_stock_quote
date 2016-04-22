@@ -1,7 +1,7 @@
 var webpack = require("webpack");
 
 module.exports = {
-	entry: ['bootstrap-loader', './main.js'],
+	entry: ['bootstrap-loader', './home.js'],
 	output: {
 		path: "./",
 		filename: 'index.js'

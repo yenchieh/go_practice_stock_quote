@@ -2,40 +2,43 @@ package main
 
 import (
 	"gopkg.in/mgo.v2/bson"
-	"fmt"
 	"time"
 )
 
 type User struct {
 	Id bson.ObjectId `bson:"_id,omitempty"`
-	Name string `bson:"omitempty"`
+	Name string `json:"name"`
 	Password string
-	Email string
-	DateCreated time.Time `json:"dateCreated"`
+	Email string `json:"emial"`
 
 }
 
 type CustomList struct {
 	Id bson.ObjectId `bson:"_id,omitempty"`
-	User User
-	Stock map[string]Stock
+	User User `json:"user"`
+	Stock []Stock `json:"stock"`
+	DateCreated time.Time `json:"dateCreated"`
 }
 
 type Stock struct {
 	Id bson.ObjectId `bson:"_id,omitempty"`
-	StockName string
-	Symbol string
+	StockName string `json:"stockName"`
+	Symbol string `json:"symbol"`
 }
 
-func (list *CustomList) AddStock(stock map[string]Stock) map[string]Stock {
-	for _, v := range stock {
-		if lan, ok := list.Stock[v.Symbol]; ok == false {
-			fmt.Println(lan)
-			list.Stock[v.Symbol] = v
+func (list *CustomList) AddStock(stock Stock) []Stock {
+	var found bool = false
+	for _, v := range list.Stock {
+		if v.Symbol == stock.Symbol {
+			found = true
+			break;
 		}
 	}
 
-
+	if found == false {
+		stock.Id = bson.NewObjectId()
+		list.Stock = append(list.Stock, stock)
+	}
 
 	return list.Stock
 }

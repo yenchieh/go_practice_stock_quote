@@ -1,10 +1,12 @@
 
-var React = require('react');
-var ReactDOM = require('react-dom');
-var css = require("!style!css!sass!./scss/main.scss");
-var QuoteTable = require('./component/quote.js');
-var StockList = require('./myStock.js');
-var update = require('react-addons-update');
+import React from 'react';
+import ReactDOM from 'react-dom';
+import "!style!css!sass!./scss/main.scss";
+import QuoteTable from './component/quote.js';
+import StockList from './myStock.js';
+import UserStockList from './userStockList.js';
+import update from 'react-addons-update'
+import {Router, Route, Link, browserHistory} from 'react-router'
 import 'whatwg-fetch';
 
 const API_DOMAIN = "http://localhost:8080/";
@@ -17,17 +19,12 @@ const API_HEADER = {
 var Main = React.createClass({
 	getInitialState: function () {
 		return {
-			domain: 'http://localhost:8080/',
-			searchPath: 'search',
-			quoteData: [],
-			searchIndex: []
+			quoteData: []
 		}
 	},
-
 	componentDidMount: function () {
 		this.symbolInput = document.getElementById("symbolSearchInput");
 	},
-
 	searchSymbol: function(){
 		fetch(API_DOMAIN + API_SEARCH + "?symbol=" + this.symbolInput.value, {
 			method: 'GET',
@@ -43,33 +40,34 @@ var Main = React.createClass({
 				var quoteData = this.state.quoteData;
 				let newQuote = data.query.results.quote;
 				newQuote = update(newQuote, {$merge: {buttonType: "add"}});
-				quoteData.push(newQuote);
+				quoteData = update(quoteData, {$push: [newQuote]});
 				this.setState({quoteData: quoteData});
 			}
 		);
 
 	},
-
 	keypressed: function(e){
 
 		if(e.key == "Enter"){
 			this.searchSymbol();
 		}
 	},
-
 	clickRemoveButton: function(key){
-		console.error(key);
+		let quoteData = this.state.quoteData;
+		quoteData.map(function(quote, i){
+			if(key == quote.symbol){
+				quoteData = update(quoteData, {$splice: [[i, 1]]})
+			}
+		});
+		this.setState({quoteData: quoteData});
 	},
 
+
 	render: function () {
+
+
 		return (
 			<div>
-				<div id="nav">
-					<ul className="nav nav-tabs">
-						<li role="presentation" className="active"><a href="#">Search</a></li>
-						<li role="presentation"><a href="#">My Stock</a></li>
-					</ul>
-				</div>
 				<div id="mainSearchComponent">
 					<figure className="highlight">
 						<div className="form-inline">
@@ -89,10 +87,11 @@ var Main = React.createClass({
 				</div>
 
 				<StockList/>
+
 			</div>
 
 		)
 	}
 });
 
-ReactDOM.render(<Main/>, document.getElementById('app'));
+export default Main

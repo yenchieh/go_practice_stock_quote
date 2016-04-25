@@ -39,6 +39,7 @@ func main() {
 	r.HandleFunc("/search", getQuotesAndRender).Methods("Get")
 	r.HandleFunc("/addToList", addToList).Methods("POST")
 	r.HandleFunc("/getUserStockList", getUserStockList).Methods("GET")
+	r.HandleFunc("/checkUser", checkUser).Methods("GET")
 	r.HandleFunc("/removeFromList", removeFromStockList).Methods("POST")
 	log.Println("Listening...")
 
@@ -92,10 +93,36 @@ func getQuotesAndRender(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func checkUser(w http.ResponseWriter, r *http.Request) {
+	userName := r.URL.Query().Get("userName")
+	userEmail := r.URL.Query().Get("userEmail")
+
+	session, err := mgo.Dial("localhost")
+	if err != nil {
+		panic(err)
+	}
+	defer session.Close()
+
+	c := session.DB("testDB").C("userStockList")
+
+	user := User{}
+
+	if err := c.Find(bson.M{"user.name": userName, "user.email": userEmail}).One(&user); err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(nil)
+
+	}else{
+		w.WriteHeader(http.StatusOK)
+		w.Write(nil)
+	}
+
+}
+
 func getUserStockList(w http.ResponseWriter, r *http.Request) {
 	userName := r.URL.Query().Get("userName")
+	userEmail := r.URL.Query().Get("userEmail")
 
-	if len(userName) == 0 {
+	if len(userName) == 0 || len(userEmail) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		errorResponse := Error{
 			Status: string(http.StatusBadRequest),
@@ -117,14 +144,14 @@ func getUserStockList(w http.ResponseWriter, r *http.Request) {
 
 	defer session.Close()
 
-	log.Printf("Search User: %s\n", userName)
+	log.Printf("Search User: %s %s\n", userName, userEmail)
 
 	session.SetMode(mgo.Monotonic, true)
 	c := session.DB("testDB").C("userStockList")
 
 	user := CustomList{}
 
-	err = c.Find(bson.M{"user.name": userName}).One(&user)
+	err = c.Find(bson.M{"user.name": userName, "user.email": userEmail}).One(&user)
 
 	if err != nil {
 		panic(err)
@@ -275,6 +302,7 @@ func addToList(w http.ResponseWriter, r *http.Request) {
 
 	user := User{
 		Name: symbolRequest.UserName,
+		Email: symbolRequest.UserEmail,
 	}
 
 	stock := Stock{StockName: symbolRequest.StockName, Symbol: symbolRequest.Symbol}

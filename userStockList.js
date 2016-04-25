@@ -4,30 +4,34 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import QuoteTable from './component/quote.js';
-import update from 'react-addons-update'
-import {Router, Route, Link, browserHistory} from 'react-router'
+import update from 'react-addons-update';
+import {Router, Route, Link, browserHistory} from 'react-router';
+import LocalStorageMixin from 'react-localstorage';
 import 'whatwg-fetch';
 
-const API_DOMAIN = "http://localhost:8080/";
-const API_REMOVE = "removeFromList";
-const API_USER_LIST = "getUserStockList";
-const API_HEADER = {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-};
+import Config from './mainConfig.js';
 
 var UserStockList = React.createClass({
+	mixins: [LocalStorageMixin],
+
 	getInitialState: function () {
 		return {
 			title: "",
-			quoteData: []
+			quoteData: [],
+			userName: "",
+			userEmail: ""
 		}
 	},
 
 	componentDidMount: function(){
-		fetch(API_DOMAIN + API_USER_LIST + "?userName=Jay", {
+		let query = this.props.location.query;
+		this.setState({
+			userName: query.userName,
+			userEmail: query.userEmail
+		});
+		fetch(Config.API_DOMAIN + Config.API_USER_STOCK_LIST + "?userName="+query.userName+"&userEmail="+query.userEmail, {
 			method: 'get',
-			header: API_HEADER
+			header: Config.API_JSON_HEADER
 		}).then((response) => response.json())
 		.then((data) => {
 				this.fetchUserList(data.query);
@@ -36,7 +40,6 @@ var UserStockList = React.createClass({
 	},
 
 	fetchUserList: function(data){
-		console.error(data);
 		if(data.count == 0){
 			this.setState({title: "You have no data"});
 			return;
@@ -56,13 +59,12 @@ var UserStockList = React.createClass({
 		var data = {
 			listId: this.state.quoteData[key].id,
 			username: username
-
 		};
-		console.error(data);
-		fetch(API_DOMAIN + API_REMOVE, {
+
+		fetch(Config.API_DOMAIN + Config.API_REMOVE_LIST, {
 			method: 'POST',
 			body: JSON.stringify(data),
-			headers: API_HEADER
+			headers: Config.API_JSON_HEADER
 		}).then((response) => {
 			if(response.ok){
 				this.removeFromStockList_load(key);

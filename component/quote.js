@@ -8,12 +8,6 @@ var update = require('react-addons-update');
 var ReactCSSTransitionGroup = require('react-addons-css-transition-group');
 import 'whatwg-fetch';
 
-const API_DOMAIN = "http://localhost:8080/";
-const API_ADDSTOCK = "addToList";
-const API_HEADER = {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-};
 
 var QuoteTable = React.createClass({
 	getInitialState: function () {
@@ -26,72 +20,11 @@ var QuoteTable = React.createClass({
 		this.setState({stocks: props.data});
 	},
 
-
-	clickAddButton: function(e){
-		var clickedButton = $(e.target);
-
-		if(clickedButton.hasClass("disabled")){
-			return;
-		}
-
-		clickedButton.addClass("disabled");
-		this.storeStock({
-			button: clickedButton
-		});
-	},
-
-	storeStock: function(oArgs){
-		oArgs = oArgs || {};
-		var clickedButton = oArgs.button;
-		var username = "Jay";
-		var data = {
-			symbol: clickedButton.attr('data-symbol'),
-			stockName: clickedButton.attr('data-name'),
-			username: username
-		};
-
-		fetch(API_DOMAIN + API_ADDSTOCK, {
-			method: 'POST',
-			mode: 'cors',
-			body: JSON.stringify(data),
-			headers: API_HEADER
-		}).then((response) => response.json())
-			.then((data) => {
-				if(!data || data.length == 0){
-					clickedButton.removeClass("disabled");
-
-				}else{
-					this.stockAdded(clickedButton);
-				}
-			}
-		);
-	},
-
-	stockAdded: function(clickedButton){
-		clickedButton.parents("tr").css({
-			"background-color": "gainsboro"
-		});
-
-		let index = clickedButton.attr("data-id");
-		let updateButton = update(this.state.stocks, {
-			[index]: {
-				buttonType: {
-					$set: "remove"
-				}
-			}
-		});
-
-		this.setState({
-			stocks: updateButton
-		});
-
-	},
-
 	renderAddOrRemove: function(quote, key){
 		if(quote.buttonType == "add"){
-			return (<td><button className="btn btn-sm btn-success" data-symbol={quote.symbol} data-name={quote.name} onClick={this.clickAddButton} data-id={key}>Add to List</button></td>)
+			return (<td><li className="btn btn-sm btn-success" onClick={this.props.addButtonCallback.bind(null, quote)} data-id={key}>Add to List</li></td>)
 		}else if(quote.buttonType == "remove"){
-			return (<td><button className="btn btn-sm btn-warning" data-symbol={quote.symbol} data-name={quote.name} onClick={this.props.removeButtonCallback.bind(null, key)} data-id={key}>Remove</button></td>)
+			return (<td><button className="btn btn-sm btn-warning" onClick={this.props.removeButtonCallback.bind(null, key)}>Remove</button></td>)
 		}else{
 			return null
 		}

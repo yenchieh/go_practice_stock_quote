@@ -9,15 +9,42 @@ import 'whatwg-fetch';
 import StockList from './myStock.js';
 import UserStockList from './userStockList.js';
 import Main from './main.js';
-
-const API_DOMAIN = "http://localhost:8080/";
-const API_SEARCH = "search";
-const API_HEADER = {
-	'Accept': 'application/json',
-	'Content-Type': 'application/json'
-};
+import Config from './mainConfig.js'
 
 var Home = React.createClass({
+
+	getInitialState: function() {
+		var storage = window.localStorage.getItem("Main") || "{}";
+		if(storage) {
+			storage = JSON.parse(storage);
+
+		}
+
+		//Check if user exist
+		this.checkUser(storage.userName, storage.userEmail);
+
+		return {
+			userName: storage.userName,
+			userEmail:storage.userEmail
+		}
+	},
+
+	checkUser: function(name, email){
+		fetch(Config.API_DOMAIN + Config.API_CHECK_USER + "?userName=" + name + "&userEmail=" + email, {
+			method: 'GET',
+			headers: Config.API_JSON_HEADER
+		}).then((response) => {
+			if(response.status == 404){
+
+				this.setState({
+					userName: "",
+					userEmail: ""
+				})
+			}
+
+		});
+	},
+
 	componentDidMount: function(){
 		this.nav = document.getElementsByClassName("tab");
 	},
@@ -39,12 +66,26 @@ var Home = React.createClass({
 			)
 		};
 
+		let customStockLink = {
+			pathname: "/myStock",
+			query: {
+				userName: this.state.userName,
+				userEmail: this.state.userEmail
+			}
+		};
+
+		let renderTab = function(){
+			return (
+				<li role="presentation" className="tab" onClick={this.clickedOnTab}><Link to={customStockLink}>{this.state.userName}</Link></li>
+			)
+		}.bind(this);
+
 		return (
 			<div>
 				<div id="nav">
 					<ul className="nav nav-tabs">
 						<li role="presentation" className="tab active" onClick={this.clickedOnTab}><Link to="/">Search</Link></li>
-						<li role="presentation" className="tab" onClick={this.clickedOnTab}><Link to="/myStock">My Stock</Link></li>
+						{renderTab()}
 					</ul>
 				</div>
 

@@ -6,9 +6,8 @@ import update from 'react-addons-update'
 import {Router, Route, IndexRoute, Link, browserHistory} from 'react-router'
 import 'whatwg-fetch';
 
-import StockList from './myStock.js';
 import UserStockList from './userStockList.js';
-import Main from './main.js';
+import QuoteResultList from './quoteResultList.js';
 import Config from './mainConfig.js'
 
 var Home = React.createClass({
@@ -21,7 +20,10 @@ var Home = React.createClass({
 		}
 
 		//Check if user exist
-		this.checkUser(storage.userName, storage.userEmail);
+		if(storage.userName && storage.userEmail){
+			this.checkUser(storage.userName, storage.userEmail);
+		}
+
 
 		return {
 			userName: storage.userName,
@@ -39,7 +41,7 @@ var Home = React.createClass({
 				this.setState({
 					userName: "",
 					userEmail: ""
-				})
+				});
 			}
 
 		});
@@ -57,6 +59,10 @@ var Home = React.createClass({
 		e.target.className="tab active";
 	},
 
+	updateUserInfo: function(data){
+console.error(data);
+	},
+
 	render: function () {
 		let Footer = function(){
 			return(
@@ -67,7 +73,7 @@ var Home = React.createClass({
 		};
 
 		let customStockLink = {
-			pathname: "/myStock",
+			pathname: "/userStockList",
 			query: {
 				userName: this.state.userName,
 				userEmail: this.state.userEmail
@@ -90,7 +96,6 @@ var Home = React.createClass({
 				</div>
 
 				{this.props.children}
-
 				<Footer/>
 			</div>
 		)
@@ -100,8 +105,8 @@ var Home = React.createClass({
 ReactDOM.render(
 	<Router history={browserHistory}>
 		<Route path="/" component={Home}>
-			<IndexRoute component={Main}/>
-			<Route path="myStock" component={UserStockList} />
+			<IndexRoute component={QuoteResultList}/>
+			<Route path="userStockList" component={UserStockList} />
 		</Route>
 	</Router>
 	, document.getElementById('app'));

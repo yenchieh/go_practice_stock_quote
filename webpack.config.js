@@ -3,8 +3,8 @@ var webpack = require("webpack");
 module.exports = {
 	entry: ['bootstrap-loader', './home.js'],
 	output: {
-		path: "./",
-		filename: 'index.js'
+		path: "./build",
+		filename: 'bundle.js'
 	},
 	devServer: {
 		inline: true,
@@ -40,3 +40,5 @@ module.exports = {
 	]
 
 };
+
+//webpack --progress --colors --watch

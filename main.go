@@ -17,10 +17,9 @@ import (
 )
 
 var templates map[string]*template.Template
-var yahooFinanceUrl string
+var yahooFinanceUrl string = "http://query.yahooapis.com/v1/public/yql"
 
 func init() {
-	yahooFinanceUrl = "http://query.yahooapis.com/v1/public/yql"
 	if templates == nil {
 		templates = make(map[string]*template.Template)
 	}
@@ -29,12 +28,10 @@ func init() {
 }
 
 func main() {
-
-
 	fmt.Println("Starting...")
 	r := mux.NewRouter().StrictSlash(false)
-	//mux.HandleFunc("/welcome", index)
-	r.HandleFunc("/", index)
+	r.HandleFunc("/", index).Methods("Get")
+	r.HandleFunc("/myStock", index).Methods("Get")
 	r.HandleFunc("/resource/{type}/{fileName}", ServeHTTP)
 	r.HandleFunc("/search", getQuotesAndRender).Methods("Get")
 	r.HandleFunc("/addToList", addToList).Methods("POST")
@@ -66,6 +63,7 @@ func renderTemplate(w http.ResponseWriter, name string, template interface{}) {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Index")
 	renderTemplate(w, "index", nil)
 }
 
@@ -375,27 +373,24 @@ func removeFromStockList(w http.ResponseWriter, r *http.Request){
 
 }
 
-var baseTemplateURL = "src/github.com/go_practice"
+var baseTemplateURL = "src/github.com/go_practice/build"
 
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-
 	fileType := vars["type"]
 	fileName := vars["fileName"]
-	path := fmt.Sprintf("%s/%s/%s", baseTemplateURL, fileType, fileName)
+	path := fmt.Sprintf("%s/%s", baseTemplateURL, fileName)
 
 	log.Printf("Loading File: %s", path)
-
-	fmt.Printf("Here is: %s", r.Method);
 
 	data, err := ioutil.ReadFile(path)
 	if err == nil {
 		var contentType string
-		if strings.HasSuffix(path, ".css") {
+		if strings.HasSuffix(fileType, "css") {
 			contentType = "text/css"
-		} else if strings.HasSuffix(path, ".js") {
+		} else if strings.HasSuffix(fileType, "js") {
 			contentType = "application/javascript"
-		} else if strings.HasSuffix(path, ".png") {
+		} else if strings.HasSuffix(fileType, "png") {
 			contentType = "image/png"
 		} else {
 			contentType = "text/html"
@@ -407,8 +402,6 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		w.Write([]byte("404 Not Found - " + http.StatusText(404)))
 	}
-
-	//w.Write([]byte("First Name: " + p.fName))
 }
 
 

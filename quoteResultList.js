@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import "!style!css!sass!./scss/main.scss";
 import QuoteTable from './component/quote.js';
-import StockList from './myStock.js';
 import Dialog from './tools/dialog.js';
 import update from 'react-addons-update';
 import {Router, Route, Link, browserHistory} from 'react-router';
@@ -11,7 +10,7 @@ import 'whatwg-fetch';
 
 import Config from './mainConfig.js'
 
-var Main = React.createClass({
+var QuoteResultList = React.createClass({
 	mixins: [LocalStorageMixin],
 	getInitialState: function () {
 		return {
@@ -27,6 +26,7 @@ var Main = React.createClass({
 	},
 	componentDidMount: function () {
 		this.symbolInput = document.getElementById("symbolSearchInput");
+		console.error(this.props);
 	},
 	searchSymbol: function () {
 		fetch(Config.API_DOMAIN + Config.API_SEARCH_STOCK + "?symbol=" + this.symbolInput.value, {
@@ -82,7 +82,7 @@ var Main = React.createClass({
 		oArgs = oArgs || {};
 		var clickedButton = oArgs.button;
 		var userName = this.state.userName;
-		var userEmail = this.state.userEmail
+		var userEmail = this.state.userEmail;
 		var data = {
 			symbol: oArgs.quote.symbol,
 			stockName: oArgs.quote.name,
@@ -146,10 +146,12 @@ var Main = React.createClass({
 		var name = $ele.find('#userNameInput').val();
 		var email = $ele.find('#userEmailInput').val();
 
-		this.setState({
+/*		this.setState({
 			userName: name,
 			userEmail: email
-		});
+		});*/
+
+
 
 	},
 
@@ -196,7 +198,6 @@ var Main = React.createClass({
 											addButtonCallback={this.clickAddButton}/>
 				</div>
 
-				<StockList/>
 				{showDialog()}
 			</div>
 
@@ -204,4 +205,4 @@ var Main = React.createClass({
 	}
 });
 
-export default Main
+export default QuoteResultList
